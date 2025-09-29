@@ -2,7 +2,7 @@ name: Build and Publish CachyOS NVIDIA Kmod RPM Image
 
 on:
   schedule:
-    - cron: '0 0 1 */2 *'     # ✅ Run every 2 months at midnight UTC
+    - cron: '0 0 1 */2 *'     # every 2 months
   workflow_dispatch:
 
 permissions:
@@ -13,47 +13,37 @@ permissions:
 jobs:
   build-akmods-image:
     runs-on: ubuntu-latest
-    container: fedora:43      # Build inside Fedora
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Enable repos and prepare build environment
+      - name: Install Fedora build tools + RPM Fusion
         run: |
           set -euxo pipefail
-          # Update base
-          dnf -y upgrade
+          sudo apt-get update
+          sudo apt-get install -y dnf rpm
 
-          # ✅ Enable RPM Fusion (free + nonfree) for akmod-nvidia
-          FEDVER=$(rpm -E %fedora)
-          dnf -y install \
-            https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$FEDVER.noarch.rpm \
-            https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$FEDVER.noarch.rpm
+          # Enable Fedora 43 repos
+          sudo dnf -y install \
+            'dnf-command(config-manager)' \
+            https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm \
+            https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-43.noarch.rpm
 
-          # CachyOS kernel COPR
-          curl -o /etc/yum.repos.d/copr-bieszczaders-kernel-cachyos.repo \
-            https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos/repo/fedora-$FEDVER/bieszczaders-kernel-cachyos-fedora-$FEDVER.repo
+          # Add CachyOS COPR
+          sudo curl -o /etc/yum.repos.d/copr-bieszczaders-kernel-cachyos.repo \
+            https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos/repo/fedora-43/bieszczaders-kernel-cachyos-fedora-43.repo
 
-          # Install kernel + build tools + akmod sources
-          dnf -y install \
-            kernel-cachyos kernel-cachyos-devel-matched \
-            akmod-nvidia \
-            rpm-build dnf-plugins-core gcc gcc-c++ make curl git tar xz \
-            elfutils-libelf-devel
+          sudo dnf -y upgrade
+          sudo dnf -y install kernel-cachyos kernel-cachyos-devel-matched \
+              akmod-nvidia gcc gcc-c++ make elfutils-libelf-devel rpm-build akmods
 
       - name: Build NVIDIA akmods
         run: |
           set -euxo pipefail
           mkdir -p rpms/kmods
-          # Determine installed CachyOS kernel release
           KVER=$(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}\n" kernel-cachyos | head -n1)
-          echo "Building akmods for kernel: $KVER"
-
-          # ✅ Force akmods build for our kernel
-          akmods --force --kernels "$KVER" --akmod nvidia
-
-          # Copy generated kmod RPMs
-          find /var/cache/akmods/nvidia/ -name "*.rpm" -exec cp {} rpms/kmods/ \;
+          sudo akmods --force --kernels "$KVER" --akmod nvidia
+          sudo find /var/cache/akmods/nvidia/ -name "*.rpm" -exec cp {} rpms/kmods/ \;
 
       - name: Upload RPM artifacts
         uses: actions/upload-artifact@v4
