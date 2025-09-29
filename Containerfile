@@ -1,8 +1,8 @@
 FROM scratch
 LABEL org.opencontainers.image.title="kernel-cachyos-nvidia RPMs"
-LABEL org.opencontainers.image.description="CachyOS kernel NVIDIA kmods for akmods-style consumption"
+LABEL org.opencontainers.image.description="CachyOS NVIDIA-open kmod RPMs for akmods-style consumption"
 
-# Copy RPMs from artifact
-COPY rpms/ /rpms/
+# Copy RPMs from previous workflow
+COPY rpms/kmods/ /rpms/kmods/
 
-# No CMD needed; purely a container artifact repository
+# No CMD — this is just a container artifact repository
