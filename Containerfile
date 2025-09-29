@@ -8,7 +8,7 @@ FROM scratch
 
 # OCI Metadata
 LABEL org.opencontainers.image.title="kernel-cachyos-nvidia RPMs" \
-      org.opencontainers.image.description="CachyOS kernel and NVIDIA-open kmod RPMs for akmods-style consumption" \
+      org.opencontainers.image.description="CachyOS NVIDIA-open kmod RPMs for akmods-style consumption" \
       org.opencontainers.image.licenses="GPL-2.0-or-later" \
       org.opencontainers.image.source="https://github.com/${{ github.repository }}" \
       org.opencontainers.image.authors="ClarityOS Build System"
