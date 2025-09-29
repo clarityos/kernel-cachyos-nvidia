@@ -1,39 +1,44 @@
-name: Build and Publish CachyOS Kernel RPM Image
+name: Build NVIDIA kmods for CachyOS Kernel
 
 on:
+  schedule:
+    - cron: "0 0 1 */2 *"    # Every 2 months
   workflow_dispatch:
-  push:
-    branches: [ main ]
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  build-kernel-image:
+  build-kmods:
     runs-on: ubuntu-22.04
     container: fedora:43
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install build tools
+      - name: Mount BTRFS for podman storage
+        id: container-storage-action
+        uses: ublue-os/container-storage-action@911baca08baf30c8654933e9e9723cb399892140
+
+      - name: Install build dependencies
         run: |
           dnf -y update
-          dnf -y install rpm-build dnf-plugins-core spectool curl gcc make bc \
-            bison flex elfutils-devel dwarves zstd python3 python3-pyyaml \
-            openssl-devel git
+          dnf -y copr enable bieszczaders/kernel-cachyos
+          dnf -y install akmods kernel-cachyos kernel-cachyos-devel-matched \
+             rpm-build @development-tools kmodtool gcc make
 
-      - name: Build kernel RPMs
+      - name: Build NVIDIA kmods
         run: |
-          chmod +x build.sh
-          ./build.sh
+          mkdir -p rpms/kmods
+          akmods --force --kernels $(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}\n" kernel-cachyos) --kmod nvidia
+          find /var/cache/akmods/nvidia -name '*.rpm' -exec cp {} rpms/kmods/ \;
 
-      - name: Upload RPM artifacts
+      - name: Upload kmod RPM artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: kernel-cachyos-nvidia-rpms
-          path: rpms/kernel/
+          name: nvidia-kmods
+          path: rpms/kmods/
 
       - name: Login to GHCR
         uses: docker/login-action@v2
@@ -42,9 +47,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Container Image
+      - name: Build & Push RPM Container
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/kernel-cachyos-nvidia:latest
+          tags: ghcr.io/${{ github.repository_owner }}/kernel-cachyos-nvidia-kmods:latest

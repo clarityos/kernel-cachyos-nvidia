@@ -1,5 +1,6 @@
 FROM scratch
-LABEL org.opencontainers.image.title="kernel-cachyos-nvidia Kernel RPMs"
-LABEL org.opencontainers.image.description="CachyOS kernel RPMs with NVIDIA-open modules built-in"
+LABEL org.opencontainers.image.title="kernel-cachyos-nvidia kmods"
+LABEL org.opencontainers.image.description="Prebuilt nvidia-open kmod RPMs for CachyOS kernel"
 
-COPY rpms/kernel/ /rpms/
+# Store RPMs inside the container
+COPY rpms/kmods/ /rpms/
