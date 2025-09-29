@@ -8,7 +8,7 @@ LABEL org.opencontainers.image.title="kernel-cachyos-nvidia RPMs"
 LABEL org.opencontainers.image.description="CachyOS NVIDIA kmod RPMs for akmods-style consumption"
 
 # Copy RPMs into image
-COPY rpms/kmods/ /tmp/rpms/kmods/
+COPY rpms/kmods/ /rpms/kmods/
 
 
 # Directory structure mimics uBlueOS akmods images:
