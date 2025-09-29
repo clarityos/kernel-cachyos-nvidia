@@ -6,8 +6,8 @@ on:
     - cron: '0 0 1 */2 *'  # every 2 months
 
 permissions:
-  contents: write       # needed for repository_dispatch
-  id-token: write       # optional for signing
+  packages: write
+  contents: read
 
 jobs:
   build-kmods:
