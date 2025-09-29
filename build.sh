@@ -6,7 +6,7 @@ SPEC_URL="https://raw.githubusercontent.com/CachyOS/copr-linux-cachyos/refs/head
 
 echo "==> Preparing RPM build directories..."
 mkdir -p "$TOPDIR"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
-mkdir -p rpms/kmods
+mkdir -p rpms/kernel
 
 echo "==> Downloading spec file..."
 curl -L -o "$TOPDIR/SPECS/kernel-cachyos.spec" "$SPEC_URL"
@@ -15,24 +15,17 @@ echo "==> Downloading sources..."
 spectool -g -C "$TOPDIR/SOURCES" "$TOPDIR/SPECS/kernel-cachyos.spec"
 
 echo "==> Installing build dependencies..."
-# Install only what's needed to build the kmod
 sudo dnf builddep -y "$TOPDIR/SPECS/kernel-cachyos.spec" || true
-sudo dnf install -y rpm-build gcc gcc-c++ make bc bison flex elfutils-devel \
+sudo dnf install -y rpm-build gcc make bc bison flex elfutils-devel \
     dwarves zstd python3 python3-pyyaml openssl-devel curl
 
-echo "==> Building only NVIDIA open kernel modules..."
+echo "==> Building kernel with NVIDIA modules built-in..."
 rpmbuild -bb \
   --define "_topdir $TOPDIR" \
   --define "_build_nv 1" \
-  --define "_without_kernel 1" \
-  "$TOPDIR/SPECS/kernel-cachyos.spec" \
-  --with nvidia-open \
-  --without core \
-  --without modules \
-  --without devel \
-  --without devel-matched
+  "$TOPDIR/SPECS/kernel-cachyos.spec"
 
-echo "==> Collecting NVIDIA RPMs..."
-find "$TOPDIR/RPMS" -name "*nvidia-open*.rpm" -exec cp {} rpms/kmods/ \;
+echo "==> Collecting kernel RPMs..."
+find "$TOPDIR/RPMS" -name "kernel-cachyos*.rpm" -exec cp {} rpms/kernel/ \;
 
-echo "==> Done. NVIDIA-open kmod RPMs stored in rpms/kmods/"
+echo "==> Done. Kernel RPMs stored in rpms/kernel/"
