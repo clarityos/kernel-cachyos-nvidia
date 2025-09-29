@@ -13,34 +13,32 @@ permissions:
 jobs:
   build-akmods-image:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Fedora build tools + RPM Fusion
+      # Install Fedora tools (dnf + rpm)
+      - name: Install DNF and RPM
         run: |
-          set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y dnf rpm
+          sudo apt-get install -y dnf rpm curl
 
-          # Enable Fedora 43 repos
-          sudo dnf -y install \
-            'dnf-command(config-manager)' \
+      # Enable rpmfusion + CachyOS COPR repos
+      - name: Configure Fedora Repos
+        run: |
+          sudo dnf install -y \
             https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm \
             https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-43.noarch.rpm
-
-          # Add CachyOS COPR
-          sudo curl -o /etc/yum.repos.d/copr-bieszczaders-kernel-cachyos.repo \
+          sudo curl -Lo /etc/yum.repos.d/copr-bieszczaders-kernel-cachyos.repo \
             https://copr.fedorainfracloud.org/coprs/bieszczaders/kernel-cachyos/repo/fedora-43/bieszczaders-kernel-cachyos-fedora-43.repo
-
-          sudo dnf -y upgrade
-          sudo dnf -y install kernel-cachyos kernel-cachyos-devel-matched \
-              akmod-nvidia gcc gcc-c++ make elfutils-libelf-devel rpm-build akmods
 
       - name: Build NVIDIA akmods
         run: |
           set -euxo pipefail
           mkdir -p rpms/kmods
+          sudo dnf -y install kernel-cachyos kernel-cachyos-devel-matched \
+              akmod-nvidia gcc gcc-c++ make elfutils-libelf-devel rpm-build akmods
           KVER=$(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}\n" kernel-cachyos | head -n1)
           sudo akmods --force --kernels "$KVER" --akmod nvidia
           sudo find /var/cache/akmods/nvidia/ -name "*.rpm" -exec cp {} rpms/kmods/ \;
