@@ -1,0 +1,80 @@
+name: Build and Publish CachyOS Kernel NVIDIA RPM Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:             # ✅ Top-level permissions
+  contents: read         # Needed for actions/checkout
+  packages: write        # Required to push to GHCR
+  id-token: write        # Optional (for signing if needed)
+
+jobs:
+  build-akmods-image:
+    runs-on: ubuntu-22.04
+    env:
+      IMAGE_NAME: kernel-cachyos-nvidia
+      IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+    steps:
+      # Checkout the repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Cache Fedora DNF packages to speed up repeated builds
+      - name: Cache DNF packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/dnf
+          key: dnf-${{ runner.os }}-${{ hashFiles('build.sh') }}
+          restore-keys: |
+            dnf-${{ runner.os }}-
+
+      # Prepare Fedora build environment inside the runner
+      - name: Set up Fedora environment
+        run: |
+          sudo dnf -y update
+          sudo dnf -y install rpm-build dnf-plugins-core spectool git curl \
+                          fedpkg mock make gcc
+
+      # Build the RPMs
+      - name: Build RPMs
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      # Upload compiled RPMs as a GitHub Actions artifact
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-cachyos-nvidia-open-rpms
+          path: rpms/
+
+      # Authenticate with GitHub Container Registry
+      - name: Login to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Cache Docker layers to speed up future image builds
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: buildx-${{ github.sha }}
+          restore-keys: |
+            buildx-
+
+      # Build and Push Container Image to GHCR
+      - name: Build and Push Container Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=local,src=/tmp/.buildx-cache
+          cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
