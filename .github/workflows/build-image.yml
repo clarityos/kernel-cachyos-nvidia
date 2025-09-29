@@ -1,4 +1,4 @@
-name: Build NVIDIA Kmods Container Image
+name: Build NVIDIA RPM Container
 
 on:
   repository_dispatch:
@@ -6,22 +6,20 @@ on:
 
 permissions:
   contents: read
-  packages: write  # needed to push to GHCR
-  id-token: write
+  packages: write
 
 jobs:
   build-image:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Download RPM Artifacts
+      - name: Download kmods RPM artifacts
         uses: actions/download-artifact@v4
         with:
           name: rpms
-          path: rpms/kmods/
+          path: rpms/kmods
 
       - name: Log in to GHCR
         uses: docker/login-action@v2
@@ -30,7 +28,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push Container Image
+      - name: Build and push container image
         uses: docker/build-push-action@v5
         with:
           context: .
