@@ -26,24 +26,21 @@ jobs:
             gcc gcc-c++ make elfutils-libelf-devel curl
 
       - name: Build NVIDIA kmods
-        id: build-nvidia
         run: |
           mkdir -p rpms/kmods
           KVER=$(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}\n" kernel-cachyos | head -n1)
-          echo "Kernel version detected: $KVER"
           akmods --force --kernels "$KVER" --akmod nvidia
           find /var/cache/akmods/nvidia/ -name "*.rpm" -exec cp {} rpms/kmods/ \;
 
       - name: Upload RPM artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: rpms-kmods-${{ steps.build-nvidia.outputs.KVER }}
+          name: rpms
           path: rpms/kmods/
 
       - name: Trigger Container Build
-        uses: peter-evans/workflow-dispatch@v1
+        uses: peter-evans/repository-dispatch@v3
         with:
-          workflow: build-image.yml
-          ref: main
-          inputs: |
-            artifact-name: rpms-kmods-${{ steps.build-nvidia.outputs.KVER }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: build-image
+          client-payload: '{"artifact_name":"rpms"}'
