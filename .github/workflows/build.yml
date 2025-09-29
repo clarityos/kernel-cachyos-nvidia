@@ -45,6 +45,7 @@ jobs:
           path: rpms/kmods/
   
   build-image:
+    needs: build-kmods
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
