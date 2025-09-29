@@ -1,0 +1,49 @@
+name: Build CachyOS NVIDIA Kmods
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 1 */2 *'  # every 2 months
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-kmods:
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:43
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          dnf -y upgrade
+          dnf -y install rpm-build akmods kernel-cachyos kernel-cachyos-devel \
+            gcc gcc-c++ make elfutils-libelf-devel curl
+
+      - name: Build NVIDIA kmods
+        id: build-nvidia
+        run: |
+          mkdir -p rpms/kmods
+          KVER=$(rpm -q --qf "%{VERSION}-%{RELEASE}.%{ARCH}\n" kernel-cachyos | head -n1)
+          echo "Kernel version detected: $KVER"
+          akmods --force --kernels "$KVER" --akmod nvidia
+          find /var/cache/akmods/nvidia/ -name "*.rpm" -exec cp {} rpms/kmods/ \;
+
+      - name: Upload RPM artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpms-kmods-${{ steps.build-nvidia.outputs.KVER }}
+          path: rpms/kmods/
+
+      - name: Trigger Container Build
+        uses: peter-evans/workflow-dispatch@v1
+        with:
+          workflow: build-image.yml
+          ref: main
+          inputs: |
+            artifact-name: rpms-kmods-${{ steps.build-nvidia.outputs.KVER }}
