@@ -22,7 +22,7 @@ jobs:
       - name: Add CachyOS & RPM Fusion repos
         run: |
           # Add CachyOS repository
-          curl -fsSL https://cdn.repo.cachyos.org/cachyos.repo -o /etc/yum.repos.d/cachyos.repo
+          dnf copr enable bieszczaders/kernel-cachyos
 
           # Enable RPM Fusion free & nonfree
           dnf -y install https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-43.noarch.rpm \
@@ -31,7 +31,7 @@ jobs:
       - name: Install build dependencies
         run: |
           dnf -y upgrade
-          dnf -y install rpm-build akmods kernel-cachyos kernel-cachyos-devel \
+          dnf -y install rpm-build akmods kernel-cachyos kernel-cachyos-devel-matched \
                          gcc gcc-c++ make elfutils-libelf-devel curl
 
       - name: Build NVIDIA kmods
