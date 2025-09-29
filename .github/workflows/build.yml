@@ -5,76 +5,55 @@ on:
   push:
     branches: [ main ]
 
-permissions:             # ✅ Top-level permissions
-  contents: read         # Needed for actions/checkout
-  packages: write        # Required to push to GHCR
-  id-token: write        # Optional (for signing if needed)
+permissions:             # ✅ Needed for GHCR and checkout
+  contents: read         # To clone the repo
+  packages: write        # To push the container to GHCR
+  id-token: write        # Optional, useful for cosign signing later
 
 jobs:
   build-akmods-image:
     runs-on: ubuntu-22.04
-    env:
-      IMAGE_NAME: kernel-cachyos-nvidia
-      IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+    container: fedora:43      # ✅ Run inside a Fedora container so dnf is available
     steps:
-      # Checkout the repository
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Cache Fedora DNF packages to speed up repeated builds
-      - name: Cache DNF packages
-        uses: actions/cache@v4
-        with:
-          path: /var/cache/dnf
-          key: dnf-${{ runner.os }}-${{ hashFiles('build.sh') }}
-          restore-keys: |
-            dnf-${{ runner.os }}-
-
-      # Prepare Fedora build environment inside the runner
-      - name: Set up Fedora environment
+      - name: Install build dependencies
         run: |
-          sudo dnf -y update
-          sudo dnf -y install rpm-build dnf-plugins-core spectool git curl \
-                          fedpkg mock make gcc
+          dnf -y update
+          dnf -y install \
+            rpm-build \
+            dnf-plugins-core \
+            spectool \
+            git \
+            curl \
+            make \
+            gcc \
+            kernel-devel \
+            fedpkg \
+            rpmdevtools
 
-      # Build the RPMs
       - name: Build RPMs
         run: |
           chmod +x build.sh
           ./build.sh
 
-      # Upload compiled RPMs as a GitHub Actions artifact
       - name: Upload RPM artifacts
         uses: actions/upload-artifact@v4
         with:
           name: kernel-cachyos-nvidia-open-rpms
           path: rpms/
 
-      # Authenticate with GitHub Container Registry
       - name: Login to GHCR
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Cache Docker layers to speed up future image builds
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: buildx-${{ github.sha }}
-          restore-keys: |
-            buildx-
-
-      # Build and Push Container Image to GHCR
       - name: Build and Push Container Image
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: |
-            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          cache-from: type=local,src=/tmp/.buildx-cache
-          cache-to: type=local,dest=/tmp/.buildx-cache,mode=max
+          tags: ghcr.io/${{ github.repository_owner }}/kernel-cachyos-nvidia:latest
